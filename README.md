@@ -1,4 +1,8 @@
-# whisper.cpp
+# whisper.cpp Standalone
+
+> **⚠️ Note:** This is a modified fork of the official [whisper.cpp](https://github.com/ggml-org/whisper.cpp) repository, optimized to build **fully static, portable binaries with zero external library dependencies**.
+> 
+> For the official repository, visit [github.com/ggml-org/whisper.cpp](https://github.com/ggml-org/whisper.cpp)
 
 ![whisper.cpp](https://user-images.githubusercontent.com/1991296/235238348-05d0f6a4-da44-4900-a1de-d0707e75b763.jpeg)
 
@@ -38,6 +42,21 @@ Supported platforms:
 - [x] Windows ([MSVC](https://github.com/ggml-org/whisper.cpp/blob/master/.github/workflows/build.yml#L117-L144) and [MinGW](https://github.com/ggml-org/whisper.cpp/issues/168))
 - [x] [Raspberry Pi](https://github.com/ggml-org/whisper.cpp/discussions/166)
 - [x] [Docker](https://github.com/ggml-org/whisper.cpp/pkgs/container/whisper.cpp)
+
+## What's Different in This Fork?
+
+This fork is optimized for **maximum portability**. The key differences from the official repository are:
+
+- **Static linking by default**: All binaries are compiled with static linking enabled (`BUILD_SHARED_LIBS=OFF`)
+- **Zero external dependencies**: No need to install external libraries; just copy the binary and model file
+- **Portable across systems**: Build once on Linux, copy to any other Linux system with the same OS family and it will work
+- **USB-friendly**: Extract binary and model to a USB drive and use anywhere
+
+All optional features (FFmpeg, SDL2, CoreML, OpenVINO) remain **disabled by default** to ensure true portability. Users can enable them if needed with explicit CMake flags.
+
+See [**Building Standalone Portable Binaries**](#building-standalone-portable-binaries) section below for details.
+
+---
 
 The entire high-level implementation of the model is contained in [whisper.h](include/whisper.h) and [whisper.cpp](src/whisper.cpp).
 The rest of the code is part of the [`ggml`](https://github.com/ggml-org/ggml) machine learning library.
@@ -100,6 +119,77 @@ For example, you can use `ffmpeg` like this:
 ```bash
 ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le output.wav
 ```
+
+## Building Standalone Portable Binaries
+
+By default, `whisper.cpp` now builds **fully static binaries** with no external library dependencies. This means you can copy the compiled executable to any system with the same OS and it will work without needing any additional libraries installed.
+
+### Default Behavior (Static Linking)
+
+The binaries are automatically built with static linking enabled:
+
+```bash
+cmake -B build
+cmake --build build -j --config Release
+
+# The resulting binaries are completely standalone
+./build/bin/whisper-cli -m model.bin -f audio.wav
+```
+
+### Verification
+
+To verify your binaries are truly standalone:
+
+**On Linux:**
+```bash
+# Should show "statically linked" or only system libc references
+file ./build/bin/whisper-cli
+ldd ./build/bin/whisper-cli
+```
+
+**On macOS:**
+```bash
+# Should show only system frameworks
+otool -L ./build/bin/whisper-cli
+```
+
+### Portability Test
+
+You can test portability by copying the binary to a fresh system (or USB drive):
+
+```bash
+# Copy binary and model to USB drive
+mkdir -p /mnt/usb/whisper
+cp ./build/bin/whisper-cli /mnt/usb/whisper/
+cp ./models/ggml-base.bin /mnt/usb/whisper/
+
+# On a fresh system with the same OS:
+/mnt/usb/whisper/whisper-cli -m /mnt/usb/whisper/ggml-base.bin -f audio.wav
+```
+
+The binary will work without installing any dependencies!
+
+### Optional: Building with Shared Libraries
+
+If you need to build with shared libraries instead, you can explicitly enable it:
+
+```bash
+cmake -B build -DBUILD_SHARED_LIBS=ON
+cmake --build build -j --config Release
+```
+
+However, this is not recommended for distribution. Static linking is the default and recommended approach.
+
+### Optional Features (Still OFF by Default)
+
+All optional features remain disabled by default to keep binaries minimal and truly standalone:
+
+- **Live Audio Input**: `-DWHISPER_SDL2=ON` (optional, requires SDL2 library)
+- **FFmpeg Support**: `-DWHISPER_FFMPEG=ON` (Linux only, optional, requires FFmpeg libraries)
+- **Core ML (macOS)**: `-DWHISPER_COREML=ON` (system framework, no external dependencies)
+- **OpenVINO Support**: `-DWHISPER_OPENVINO=ON` (optional, requires OpenVINO runtime)
+
+These features can be enabled if needed, but binaries built without them are more portable.
 
 ## More audio samples
 
